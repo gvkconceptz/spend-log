@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daily Spend Log</title>
+<style>
+:root{
+  --bg:#eef1ec;--card:#ffffff;--ink:#111a14;--mute:#5d6b61;--line:#d5dcd3;
+  --green:#0a6a39;--green-ink:#ffffff;--gold:#f2b705;--red:#b3261e;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#0f1511;--card:#18211b;--ink:#eaf1ec;--mute:#9bab9f;--line:#2a372e;--green:#3fbf7a;--green-ink:#06210f;--gold:#f2b705;--red:#ff8a80}
+}
+:root[data-theme="dark"]{--bg:#0f1511;--card:#18211b;--ink:#eaf1ec;--mute:#9bab9f;--line:#2a372e;--green:#3fbf7a;--green-ink:#06210f;--gold:#f2b705;--red:#ff8a80}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.num{font-variant-numeric:tabular-nums}
+#app{max-width:560px;margin:0 auto;padding:16px 14px 40px}
+h1{font-size:1.25rem;margin:4px 0 14px;font-weight:700;letter-spacing:-.01em}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:.85rem;color:var(--mute);margin-bottom:4px}
+input{width:100%;font:inherit;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+input:focus,button:focus-visible{outline:2px solid var(--green);outline-offset:1px}
+.row{display:flex;gap:8px}
+.row>div{flex:1}
+.row>.w{flex:0 0 38%}
+button{font:inherit;font-weight:600;border:0;border-radius:8px;padding:11px 14px;cursor:pointer;background:var(--green);color:var(--green-ink)}
+button.alt{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button.x{background:transparent;color:var(--mute);padding:4px 8px;font-size:1.1rem}
+.full{width:100%;margin-top:10px}
+.summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.stat small{color:var(--mute);font-size:.8rem}
+.stat b{display:block;font-size:1.15rem}
+.stat.bal{grid-column:1/-1;border:2px solid var(--gold)}
+.stat.bal b{font-size:1.7rem}
+.neg b{color:var(--red)}
+ul{list-style:none;margin:0;padding:0}
+li{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}
+li:last-child{border-bottom:0}
+li .n{flex:1;min-width:0;overflow-wrap:anywhere}
+li .t{display:block;font-size:.75rem;color:var(--mute)}
+li .a{font-weight:600}
+li.in .a{color:var(--green)}
+.empty{color:var(--mute);padding:6px 0}
+.actions{display:flex;gap:8px}
+.actions button{flex:1}
+#report{display:none}
+@media print{
+  body{background:#fff;color:#000}
+  #app{display:none}
+  #report{display:block;font:13px/1.4 system-ui,sans-serif;max-width:none;padding:0}
+  #report h2{margin:0;font-size:20px}
+  #report .meta{color:#444;margin:2px 0 14px}
+  #report table{width:100%;border-collapse:collapse}
+  #report th,#report td{text-align:left;padding:6px 4px;border-bottom:1px solid #bbb}
+  #report th.r,#report td.r{text-align:right}
+  #report tfoot td{font-weight:700;border-top:2px solid #000;border-bottom:0}
+  #report .big td{font-size:16px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>Daily spend log</h1>
+
+  <div class="card">
+    <div class="row">
+      <div><label for="title">Log name</label><input id="title" placeholder="e.g. Supply run, Kingston"></div>
+      <div class="w"><label for="start">Starting cash (J$)</label><input id="start" type="number" inputmode="decimal" min="0" step="any" placeholder="20000"></div>
+    </div>
+  </div>
+
+  <div class="summary" id="summary">
+    <div class="stat"><small>Spent so far</small><b class="num" id="sSpent">J$0.00</b></div>
+    <div class="stat"><small>Purchases</small><b class="num" id="sCount">0</b></div>
+    <div class="stat bal" id="balBox"><small>Cash left</small><b class="num" id="sLeft">J$0.00</b></div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <label for="iname">Item bought</label>
+    <input id="iname" placeholder="e.g. MDF sheets" autocomplete="off">
+    <div class="row" style="margin-top:8px">
+      <div><label for="iamt">Price (J$)</label><input id="iamt" type="number" inputmode="decimal" min="0" step="any" placeholder="0.00"></div>
+    </div>
+    <button class="full" id="addBtn">Add purchase</button>
+    <button class="full alt" id="addIn">Add as cash received instead</button>
+  </div>
+
+  <div class="card">
+    <strong>Today’s entries</strong>
+    <ul id="list"></ul>
+  </div>
+
+  <div class="actions">
+    <button id="printBtn">Print report</button>
+    <button class="alt" id="clearBtn">Start new day</button>
+  </div>
+</div>
+
+<div id="report"></div>
+
+<script>
+(function(){
+  var KEY="gvk-spend-log-v1";
+  var S={title:"",start:"",items:[],date:new Date().toISOString().slice(0,10)};
+  var $=function(id){return document.getElementById(id)};
+  function load(){try{var r=localStorage.getItem(KEY);if(r){var o=JSON.parse(r);if(o&&Array.isArray(o.items))S=o}}catch(e){}}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+  function money(n){return "J$"+Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+  function totals(){
+    var st=parseFloat(S.start)||0,spent=0,inn=0,cnt=0;
+    S.items.forEach(function(i){if(i.type==="in")inn+=i.amt;else{spent+=i.amt;cnt++}});
+    return {start:st,spent:spent,inn:inn,cnt:cnt,left:st+inn-spent};
+  }
+  function fmtDate(d){try{return new Date(d+"T12:00:00").toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}catch(e){return d}}
+  function render(){
+    var t=totals();
+    $("sSpent").textContent=money(t.spent);
+    $("sCount").textContent=t.cnt;
+    $("sLeft").textContent=money(t.left);
+    $("balBox").className="stat bal"+(t.left<0?" neg":"");
+    var ul=$("list");
+    if(!S.items.length){ul.innerHTML='<li class="empty">No entries yet. Add your first purchase above.</li>'}
+    else{
+      ul.innerHTML=S.items.slice().reverse().map(function(i){
+        return '<li class="'+i.type+'"><span class="n">'+esc(i.name)+'<span class="t">'+esc(i.time)+(i.type==="in"?" · cash received":"")+'</span></span><span class="a num">'+(i.type==="in"?"+":"")+money(i.amt)+'</span><button class="x" data-id="'+i.id+'" aria-label="Remove '+esc(i.name)+'">×</button></li>';
+      }).join("");
+    }
+    renderReport(t);
+  }
+  function renderReport(t){
+    var rows=S.items.map(function(i,k){
+      return "<tr><td>"+(k+1)+"</td><td>"+esc(i.time)+"</td><td>"+esc(i.name)+(i.type==="in"?" (cash received)":"")+'</td><td class="r">'+(i.type==="in"?"+":"")+money(i.amt)+"</td></tr>";
+    }).join("");
+    $("report").innerHTML=
+      "<h2>GVK Conceptz: Daily spend report</h2>"+
+      '<div class="meta">'+esc(S.title||"Spend log")+" · "+esc(fmtDate(S.date))+"</div>"+
+      "<table><thead><tr><th>#</th><th>Time</th><th>Item</th><th class=\"r\">Amount</th></tr></thead><tbody>"+
+      '<tr><td></td><td></td><td>Starting cash</td><td class="r">'+money(t.start)+"</td></tr>"+rows+"</tbody><tfoot>"+
+      (t.inn?'<tr><td colspan="3">Cash received on the road</td><td class="r">'+money(t.inn)+"</td></tr>":"")+
+      '<tr><td colspan="3">Total spent ('+t.cnt+" purchases)</td><td class=\"r\">"+money(t.spent)+"</td></tr>"+
+      '<tr class="big"><td colspan="3">Cash left</td><td class="r">'+money(t.left)+"</td></tr></tfoot></table>";
+  }
+  function add(type){
+    var name=$("iname").value.trim(),amt=parseFloat($("iamt").value);
+    if(!name){$("iname").focus();return}
+    if(!(amt>=0)||isNaN(amt)){$("iamt").focus();return}
+    var now=new Date();
+    S.items.push({id:Date.now()+Math.random(),name:name,amt:amt,type:type,time:now.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})});
+    $("iname").value="";$("iamt").value="";$("iname").focus();
+    save();render();
+  }
+  $("addBtn").onclick=function(){add("out")};
+  $("addIn").onclick=function(){add("in")};
+  $("iamt").addEventListener("keydown",function(e){if(e.key==="Enter")add("out")});
+  $("iname").addEventListener("keydown",function(e){if(e.key==="Enter")$("iamt").focus()});
+  $("list").addEventListener("click",function(e){
+    var id=e.target.getAttribute&&e.target.getAttribute("data-id");
+    if(!id)return;
+    S.items=S.items.filter(function(i){return String(i.id)!==id});
+    save();render();
+  });
+  $("title").oninput=function(){S.title=this.value;save();render()};
+  $("start").oninput=function(){S.start=this.value;save();render()};
+  $("printBtn").onclick=function(){render();window.print()};
+  $("clearBtn").onclick=function(){
+    if(S.items.length&&!confirm("Clear all entries and start a new day? Print the report first if you need it."))return;
+    S={title:"",start:"",items:[],date:new Date().toISOString().slice(0,10)};
+    $("title").value="";$("start").value="";
+    save();render();
+  };
+  load();
+  $("title").value=S.title||"";$("start").value=S.start||"";
+  render();
+})();
+</script>
+</body>
+</html>
